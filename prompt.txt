@@ -19,9 +19,13 @@ Provide a clean uninstall option with option to preserve what has been created o
 
 build for the novice linux and openvino user, no or absolute minimum bash
 
-when install validates as complete, display an installation summary of what was installed, the functionality each provide and examples for the user to execute to validate all is well.
+when install validates as complete, display an installation summary of what was installed and the functionality each provides. 
+first test downloads a model, use that for AI Chat Showcase tab for instant user gratification and provide examples for the user to execute to validate all is well.
 
 gemma 4 variants, code, image and video creation from text etc. but require test results to appear in System diagnostics tab with Tkps, AI chat showcase tab should use this model so user can personally/manually validate interaction via with a mechanism to handle available configurations CRUD options for various the workflows 
+
+
+
 
 provide informative, user friendly web interface with options defined.
 Details of how option choices affect various outcomes, such as performance
