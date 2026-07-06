@@ -25,7 +25,13 @@ first test downloads a model, use that for AI Chat Showcase tab for instant user
 gemma 4 variants, code, image and video creation from text etc. but require test results to appear in System diagnostics tab with Tkps, AI chat showcase tab should use this model so user can personally/manually validate interaction via with a mechanism to handle available configurations CRUD options for various the workflows 
 
 
-
-
-provide informative, user friendly web interface with options defined.
-Details of how option choices affect various outcomes, such as performance
+arcus/
+├── main.go                # Application entry point and router map
+├── types.go               # Common structs (InstallOptions, LaunchOptions, etc.)
+├── handlers_deploy.go     # Installation and uninstallation logic
+├── handlers_runtime.go    # Engine initialization and process management
+├── frontend/
+│   └── index.html         # The complete UI (HTML/CSS/JS)
+└── templates/
+    ├── server.py.tmpl     # The isolated Python OpenVINO server code
+    └── system.sh.tmpl     # Bash execution and environment wrappers
