@@ -1,21 +1,31 @@
-Construct an interactive go installation tool for Openvino on ubuntu 26.04.
+Construct a modular, interactive go installation tool for Openvino with Arc A770 gpu on ubuntu 26.04.
 Requirements:
 
 Gather relevant hardware info inc:
-CPU CORES AND SPEED, RAM & Storage devices respective size and speed. 
-determine the presence of discreet and integrated GPU’s. And decide which is best to use.
+CPU CORES AND SPEED, RAM & Storage devices respective size and speed (lshw). 
+determine the presence of discreet and integrated GPU’s. decide which is best to use and provide option to select GPU to use (usually the one with the most VRAM).
 
 Gather relevant software info including:
 Operating Systems, all dependencies/drivers for selected GPU are present and correct
-all dependencies for optimal running openvino with discovered hardware are present and correct
-these must be satisfied before install begins
+all dependencies for optimal running openvino with discovered hardware are present and correct.
+These must be satisfied before install begins!
 
 Setup:
 unstoppable/freight train installation methodology: whatever issues are discovered have prepared solutions ready to smash through them!
+display what is present and what is missing.
+ensure all dependencies for both hardware and software are met 
 Make good use of available disks and tidy folder/file usage
 Provide a clean uninstall option with option to preserve what has been created or downloaded.
 
-build for the novice linux and openvino user, absolute minimum bash
+build for the novice linux and openvino user, no or absolute minimum bash
+
+when install validates as complete, display an installation summary of what was installed and the functionality each provides. 
+first test downloads a model, use that for AI Chat Showcase tab for instant user gratification and provide examples for the user to execute to validate all is well.
+
+gemma 4 variants, code, image and video creation from text etc. but require test results to appear in System diagnostics tab with Tkps, AI chat showcase tab should use this model so user can personally/manually validate interaction via with a mechanism to handle available configurations CRUD options for various the workflows 
+
+
+
 
 provide informative, user friendly web interface with options defined.
 Details of how option choices affect various outcomes, such as performance
