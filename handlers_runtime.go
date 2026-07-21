@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 )
 
-// handleLaunchEngine provisions the Python backend and maps the OpenVINO execution graph.
 func handleLaunchEngine(w http.ResponseWriter, r *http.Request) {
 	var wf LaunchOptions
 	if err := json.NewDecoder(r.Body).Decode(&wf); err != nil {
@@ -24,7 +23,6 @@ func handleLaunchEngine(w http.ResponseWriter, r *http.Request) {
 	pyScriptPath := filepath.Join(home, "ov_server.py")
 	shScriptPath := filepath.Join(home, "start_engine.sh")
 
-	// The isolated Python server template
 	pyCode := fmt.Sprintf(`import sys, json, time, os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from transformers import AutoTokenizer, AutoProcessor
@@ -48,7 +46,6 @@ try:
             load_in_low_bit="int8"
         )
         processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True, cache_dir=storage_path)
-        # Extract underlying tokenizer to handle raw string prompts cleanly
         tokenizer = processor.tokenizer if hasattr(processor, "tokenizer") else processor
     else:
         print(f"Loading Text/Code Model: {model_id} to GPU...")
@@ -117,7 +114,6 @@ ReuseHTTPServer(('127.0.0.1', 11434), SimpleHandler).serve_forever()
 		return
 	}
 
-	// The execution wrapper
 	shCode := fmt.Sprintf(`#!/bin/bash
 echo "🧹 Scanning local process maps to clean overlapping engine configurations..."
 pkill -f "%s" || true
@@ -132,10 +128,8 @@ exec bash
 		return
 	}
 
-	// Trigger execution context inside a dedicated interactive window environment
 	cmd := exec.Command("gnome-terminal", "--", "bash", "-c", shScriptPath)
 	if err := cmd.Start(); err != nil {
-		// Fallback straight to background pipeline execution if target terminal window mechanism fails
 		fallbackCmd := exec.Command("bash", "-c", shScriptPath)
 		fallbackCmd.Start()
 		fmt.Fprintln(w, "🚀 Engine process initialization mapped in headless operational space.")
