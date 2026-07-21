@@ -7,12 +7,58 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
+
+// handleListModels scans ~/arcus_models and HuggingFace cache for existing local models
+func handleListModels(w http.ResponseWriter, r *http.Request) {
+	home, _ := os.UserHomeDir()
+	modelsDir := filepath.Join(home, "arcus_models")
+	os.MkdirAll(modelsDir, 0755)
+
+	var models []ModelItem
+
+	// Read ~/arcus_models entries
+	entries, err := os.ReadDir(modelsDir)
+	if err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() {
+				cleanName := strings.ReplaceAll(entry.Name(), "--", "/")
+				cleanName = strings.TrimPrefix(cleanName, "models/")
+				models = append(models, ModelItem{
+					Name: cleanName,
+					Path: filepath.Join(modelsDir, entry.Name()),
+				})
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(models)
+}
+
+// handleTerminalExec executes arbitrary terminal commands for Tab 4
+func handleTerminalExec(w http.ResponseWriter, r *http.Request) {
+	var req TerminalRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Command == "" {
+		http.Error(w, "Invalid command payload", http.StatusBadRequest)
+		return
+	}
+
+	cmd := exec.Command("bash", "-c", req.Command)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(w, "Exit status error: %v\n%s", err, string(out))
+		return
+	}
+
+	w.Write(out)
+}
 
 func handleLaunchEngine(w http.ResponseWriter, r *http.Request) {
 	var wf LaunchOptions
 	if err := json.NewDecoder(r.Body).Decode(&wf); err != nil {
-		http.Error(w, "Invalid structured parameters mapping context.", http.StatusBadRequest)
+		http.Error(w, "Invalid parameters", http.StatusBadRequest)
 		return
 	}
 
@@ -109,13 +155,10 @@ class ReuseHTTPServer(HTTPServer):
 ReuseHTTPServer(('127.0.0.1', 11434), SimpleHandler).serve_forever()
 `, wf.ModelID, wf.TaskType, modelsDir)
 
-	if err := os.WriteFile(pyScriptPath, []byte(pyCode), 0644); err != nil {
-		fmt.Fprintf(w, "❌ Error constructing Python compilation payload target: %v", err)
-		return
-	}
+	os.WriteFile(pyScriptPath, []byte(pyCode), 0644)
 
 	shCode := fmt.Sprintf(`#!/bin/bash
-echo "🧹 Scanning local process maps to clean overlapping engine configurations..."
+echo "🧹 Cleaning overlapping process maps..."
 pkill -f "%s" || true
 sleep 1
 source %s/openvino_env/bin/activate
@@ -123,18 +166,15 @@ python3 %s
 exec bash
 `, pyScriptPath, home, pyScriptPath)
 
-	if err := os.WriteFile(shScriptPath, []byte(shCode), 0755); err != nil {
-		fmt.Fprintf(w, "❌ Error constructing orchestration shell payload wrapper: %v", err)
-		return
-	}
+	os.WriteFile(shScriptPath, []byte(shCode), 0755)
 
 	cmd := exec.Command("gnome-terminal", "--", "bash", "-c", shScriptPath)
 	if err := cmd.Start(); err != nil {
 		fallbackCmd := exec.Command("bash", "-c", shScriptPath)
 		fallbackCmd.Start()
-		fmt.Fprintln(w, "🚀 Engine process initialization mapped in headless operational space.")
+		fmt.Fprintln(w, "🚀 Engine process initialized in background space.")
 		return
 	}
 
-	fmt.Fprintln(w, "🚀 Dedicated interface workspace instance attached over port 11434 successfully.")
+	fmt.Fprintln(w, "🚀 Engine terminal interface launched successfully.")
 }
