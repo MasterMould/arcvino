@@ -2,15 +2,15 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"net/http"
+	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
-	// Serve the decoupled frontend interface
 	http.HandleFunc("/", handleIndex)
-
-	// Route mapping for modular feature endpoints
 	http.HandleFunc("/api/install", handleInstall)
 	http.HandleFunc("/api/uninstall", handleUninstall)
 	http.HandleFunc("/api/launch", handleLaunchEngine)
@@ -22,7 +22,34 @@ func main() {
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
-	// Dynamically load the HTML file from the new frontend directory
 	indexPath := filepath.Join("frontend", "index.html")
-	http.ServeFile(w, r, indexPath)
+
+	// Parse HTML template dynamically
+	tmpl, err := template.ParseFiles(indexPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Template loading error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Auto-detect CPU model
+	cpuInfo := "x86_64 Architecture"
+	if out, err := exec.Command("bash", "-c", "lscpu | grep 'Model name' | cut -d: -f2").Output(); err == nil && len(out) > 0 {
+		cpuInfo = strings.TrimSpace(string(out))
+	}
+
+	// Auto-detect Intel GPU status
+	gpuInfo := "Intel GPU (OpenCL/Level-Zero Active)"
+	if out, err := exec.Command("bash", "-c", "lspci | grep -i 'VGA\\|3D' | grep -i 'Intel' | cut -d: -f3").Output(); err == nil && len(out) > 0 {
+		gpuInfo = strings.TrimSpace(string(out))
+	}
+
+	data := PageData{
+		CPU:       cpuInfo,
+		GPUStatus: gpuInfo,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := tmpl.Execute(w, data); err != nil {
+		http.Error(w, fmt.Sprintf("Template rendering error: %v", err), http.StatusInternalServerError)
+	}
 }
