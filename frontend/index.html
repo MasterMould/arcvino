@@ -13,7 +13,7 @@
             padding: 2rem;
         }
         .container {
-            max-width: 1000px;
+            max-width: 1050px;
             margin: 0 auto;
         }
         .telemetry-bar {
@@ -43,17 +43,19 @@
             gap: 0.5rem;
             border-bottom: 2px solid #334155;
             margin-bottom: 1.5rem;
+            overflow-x: auto;
         }
         .tab-btn {
             background: none;
             border: none;
             color: #94a3b8;
-            padding: 0.75rem 1.5rem;
+            padding: 0.75rem 1.25rem;
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 600;
             border-bottom: 2px solid transparent;
             margin-bottom: -2px;
+            white-space: nowrap;
         }
         .tab-btn.active {
             color: #38bdf8;
@@ -73,8 +75,8 @@
             background-color: #0284c7;
             color: white;
             border: none;
-            padding: 0.75rem 1.5rem;
-            font-size: 1rem;
+            padding: 0.75rem 1.25rem;
+            font-size: 0.95rem;
             font-weight: 600;
             border-radius: 6px;
             cursor: pointer;
@@ -93,10 +95,10 @@
             background-color: #020617;
             color: #4ade80;
             font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-            padding: 1.5rem;
+            padding: 1.25rem;
             border-radius: 6px;
-            margin-top: 1.5rem;
-            max-height: 400px;
+            margin-top: 1.25rem;
+            max-height: 380px;
             overflow-y: auto;
             white-space: pre-wrap;
             border: 1px solid #1e293b;
@@ -120,7 +122,7 @@
             box-sizing: border-box;
         }
         details {
-            margin-top: 1.5rem;
+            margin-top: 1.25rem;
             background: #111827;
             padding: 1rem;
             border-radius: 6px;
@@ -149,9 +151,11 @@
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('deploy', event)">Deployment Center</button>
-            <button class="tab-btn" onclick="switchTab('runtime', event)">Engine Runtime</button>
-            <button class="tab-btn" onclick="switchTab('interact', event)">Inference Playground</button>
+            <button class="tab-btn active" onclick="switchTab('deploy', event)">1. Deployment Center</button>
+            <button class="tab-btn" onclick="switchTab('runtime', event)">2. Engine Runtime & Models</button>
+            <button class="tab-btn" onclick="switchTab('interact', event)">3. Inference Playground</button>
+            <button class="tab-btn" onclick="switchTab('terminal', event)">4. Web Terminal</button>
+            <button class="tab-btn" onclick="switchTab('diagnostics', event)">5. GPU Diagnostics</button>
         </div>
 
         <!-- TAB 1: DEPLOYMENT CENTER -->
@@ -175,7 +179,7 @@
                     </label>
                     <div class="form-group">
                         <label for="hfToken">HuggingFace Hub Access Token</label>
-                        <input type="password" id="hfToken" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (Required for gated checkpoints)">
+                        <input type="password" id="hfToken" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
                     </div>
                 </div>
             </details>
@@ -183,11 +187,21 @@
             <div id="deployLog" class="console" style="display:none;"></div>
         </div>
 
-        <!-- TAB 2: RUNTIME ENGINE -->
+        <!-- TAB 2: RUNTIME ENGINE & LOCAL MODELS -->
         <div id="runtime" class="tab-content">
-            <h2>Model Execution Mapping</h2>
-            <p>Export architecture layers and stage local execution memory graphs directly onto the Intel Arc A770 hardware pipeline.</p>
+            <h2>Model Execution & Asset Scanner</h2>
+            <p>Select cached models from local disk or load custom HF model references onto the Intel Arc A770.</p>
             
+            <div class="form-group">
+                <div style="display:flex; justify-between; align-items:center; margin-bottom:0.5rem;">
+                    <label style="margin:0;">Detected Local Models (~/arcus_models)</label>
+                    <button style="padding:0.3rem 0.75rem; font-size:0.8rem;" onclick="fetchLocalModels()">Scan Local Models</button>
+                </div>
+                <select id="localModelsSelect" onchange="selectModelFromDropdown()">
+                    <option value="">-- Click Scan to load local models --</option>
+                </select>
+            </div>
+
             <div class="form-group">
                 <label for="modelId">HuggingFace Model Reference Identifier</label>
                 <input type="text" id="modelId" value="google/gemma-4-E4B-it">
@@ -224,6 +238,36 @@
                 <p id="metricsPanel" style="font-size:0.85rem; color:#64748b; margin-top:0.5rem;"></p>
             </div>
         </div>
+
+        <!-- TAB 4: WEB TERMINAL -->
+        <div id="terminal" class="tab-content">
+            <h2>System Terminal Execution</h2>
+            <p>Dispatch direct commands to the underlying Linux shell context.</p>
+            
+            <div class="form-group">
+                <label for="termCmd">Command String</label>
+                <div style="display:flex; gap:0.5rem;">
+                    <input type="text" id="termCmd" value="clinfo -L" placeholder="e.g. clinfo -L, nvidia-smi, ls -la ~/arcus_models">
+                    <button onclick="runTerminalCmd()">Execute</button>
+                </div>
+            </div>
+
+            <div id="termLog" class="console" style="display:block; min-height:200px;">Terminal console idle. Enter a command above and click Execute.</div>
+        </div>
+
+        <!-- TAB 5: GPU DIAGNOSTICS -->
+        <div id="diagnostics" class="tab-content">
+            <h2>Hardware Telemetry & Arc Diagnostics</h2>
+            <p>Query Level-Zero, OpenCL, and Intel graphics card runtime status.</p>
+            
+            <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                <button onclick="runDiag('clinfo')">OpenCL Devices (clinfo)</button>
+                <button onclick="runDiag('lspci | grep -i intel')">PCI Graphics Devices</button>
+                <button onclick="runDiag('sycl-ls')">SYCL Hardware Enumerate</button>
+            </div>
+
+            <div id="diagLog" class="console" style="display:block; min-height:250px;">Click a diagnostic option above to run system probes.</div>
+        </div>
     </div>
 
     <script>
@@ -235,9 +279,76 @@
             if (targetTab) {
                 targetTab.classList.add('active');
             }
-            
             if (evt && evt.currentTarget) {
                 evt.currentTarget.classList.add('active');
+            }
+
+            // Auto-fetch local models when opening Tab 2
+            if (tabId === 'runtime') {
+                fetchLocalModels();
+            }
+        }
+
+        async function fetchLocalModels() {
+            const select = document.getElementById('localModelsSelect');
+            select.innerHTML = '<option value="">Scanning local storage...</option>';
+            try {
+                const res = await fetch('/api/models');
+                const models = await res.json();
+                select.innerHTML = '<option value="">-- Choose a cached local model --</option>';
+                if (models && models.length > 0) {
+                    models.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.name;
+                        opt.textContent = m.name;
+                        select.appendChild(opt);
+                    });
+                } else {
+                    select.innerHTML = '<option value="">No local models found in ~/arcus_models</option>';
+                }
+            } catch(e) {
+                select.innerHTML = '<option value="">Failed to scan local models</option>';
+            }
+        }
+
+        function selectModelFromDropdown() {
+            const val = document.getElementById('localModelsSelect').value;
+            if (val) {
+                document.getElementById('modelId').value = val;
+            }
+        }
+
+        async function runTerminalCmd() {
+            const cmd = document.getElementById('termCmd').value.trim();
+            const logBox = document.getElementById('termLog');
+            if (!cmd) return;
+
+            logBox.innerText = "$ " + cmd + "\nRunning...\n";
+            try {
+                const res = await fetch('/api/terminal', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ command: cmd })
+                });
+                logBox.innerText = "$ " + cmd + "\n\n" + await res.text();
+            } catch(e) {
+                logBox.innerText += "\n❌ Command execution failure: " + e.message;
+            }
+        }
+
+        async function runDiag(cmd) {
+            document.getElementById('termCmd').value = cmd;
+            const logBox = document.getElementById('diagLog');
+            logBox.innerText = "$ " + cmd + "\nProbing hardware...\n";
+            try {
+                const res = await fetch('/api/terminal', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ command: cmd })
+                });
+                logBox.innerText = "$ " + cmd + "\n\n" + await res.text();
+            } catch(e) {
+                logBox.innerText += "\n❌ Diagnostic probe failed: " + e.message;
             }
         }
 
@@ -255,8 +366,7 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ useNightly: nightly, hfToken: token })
                 });
-                const txt = await res.text();
-                logBox.innerText += txt;
+                logBox.innerText += await res.text();
             } catch(e) {
                 logBox.innerText += "\n❌ Connection error encountered: " + e.message;
             }
