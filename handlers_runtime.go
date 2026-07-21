@@ -69,7 +69,8 @@ func handleLaunchEngine(w http.ResponseWriter, r *http.Request) {
 	pyScriptPath := filepath.Join(home, "ov_server.py")
 	shScriptPath := filepath.Join(home, "start_engine.sh")
 
-	pyCode := fmt.Sprintf(`import sys, json, time, os
+	// The Python script is generated here. We've added subprocess and a try/except for OSError 98.
+	pyCode := fmt.Sprintf(`import sys, json, time, os, subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from transformers import AutoTokenizer, AutoProcessor
 from optimum.intel.openvino import OVModelForCausalLM, OVModelForVisualCausalLM
@@ -105,7 +106,7 @@ try:
         )
         tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True, cache_dir=storage_path)
         
-    print("✅ Model loaded successfully! Listening for payloads on 11434...")
+    print("✅ Model loaded successfully!")
 except Exception as e:
     print(f"❌ Error allocating to GPU: {e}")
     sys.exit(1)
@@ -152,7 +153,27 @@ class SimpleHandler(BaseHTTPRequestHandler):
 class ReuseHTTPServer(HTTPServer):
     allow_reuse_address = True
 
-ReuseHTTPServer(('127.0.0.1', 11434), SimpleHandler).serve_forever()
+port = 11434
+try:
+    server = ReuseHTTPServer(('127.0.0.1', port), SimpleHandler)
+    print(f"🚀 Listening for payloads on http://127.0.0.1:{port}...")
+    server.serve_forever()
+except OSError as e:
+    if e.errno == 98:
+        print(f"\n❌ ERROR: Cannot start server. Port {port} is already in use!")
+        try:
+            pid_out = subprocess.check_output(f"lsof -t -i:{port}", shell=True, text=True).strip()
+            if pid_out:
+                pids = pid_out.split('\n')
+                print(f"🔍 Found process(es) holding the port (PID): {', '.join(pids)}")
+                print(f"  • Run this to kill it: kill -9 {pids[0]}")
+        except Exception:
+            pass
+        print(f"  • Or force clear the port: sudo fuser -k {port}/tcp")
+        print(f"  • Or stop native Ollama:   sudo systemctl stop ollama\n")
+        sys.exit(1)
+    else:
+        raise
 `, wf.ModelID, wf.TaskType, modelsDir)
 
 	os.WriteFile(pyScriptPath, []byte(pyCode), 0644)
