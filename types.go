@@ -1,6 +1,6 @@
 package main
 
-// PageData holds hardware telemetry passed into the HTML template renderer.
+// PageData holds hardware telemetry passed into the HTML template.
 type PageData struct {
 	CPU       string
 	GPUStatus string
@@ -16,4 +16,15 @@ type InstallOptions struct {
 type LaunchOptions struct {
 	ModelID  string `json:"modelId"`
 	TaskType string `json:"taskType"`
+}
+
+// TerminalRequest holds shell execution payloads from Tab 4.
+type TerminalRequest struct {
+	Command string `json:"command"`
+}
+
+// ModelItem represents a scanned local model on disk.
+type ModelItem struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
 }
