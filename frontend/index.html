@@ -2,373 +2,325 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arcus Control Center</title>
     <style>
-        :root { --bg: #0f172a; --panel: #1e293b; --accent: #3b82f6; --text: #f8fafc; --success: #22c55e; --danger: #ef4444; }
-        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 2rem; max-width: 1000px; margin: 0 auto; }
-        
-        .header-panel { background: var(--panel); padding: 1.5rem; border-radius: 8px; border: 1px solid #334155; margin-bottom: 2rem; }
-        .gpu-status { color: #38bdf8; font-weight: bold; text-shadow: 0 0 10px rgba(56, 189, 248, 0.4); }
-        
-        /* Tab Navigation */
-        .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 2px solid #334155; padding-bottom: 1rem; overflow-x: auto; }
-        .tab-btn { background: transparent; color: #94a3b8; border: none; font-size: 1.1rem; cursor: pointer; padding: 0.5rem 1rem; font-weight: bold; border-radius: 4px; transition: 0.2s; white-space: nowrap; }
-        .tab-btn.active { background: var(--panel); color: var(--text); border-bottom: 3px solid var(--accent); }
-        .tab-btn:hover:not(.active) { color: white; background: #334155; }
-        
-        .tab-content { display: none; background: var(--panel); padding: 2rem; border-radius: 8px; border: 1px solid #334155; }
-        .tab-content.active { display: block; }
-
-        /* Buttons & Inputs */
-        button { background: var(--accent); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.2s; }
-        button:hover { filter: brightness(1.2); }
-        .btn-danger { background: var(--danger); }
-        
-        /* Console Logs */
-        .console { background: #020617; color: #4ade80; padding: 1rem; border-radius: 6px; font-family: monospace; height: 300px; overflow-y: auto; white-space: pre-wrap; margin-top: 1rem; border: 1px solid #334155; }
-
-        /* Diagnostics Grid */
-        .diag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
-        .diag-card { background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #334155; display: flex; flex-direction: column; align-items: center; text-align: center; }
-        .status-icon { font-size: 3rem; margin-bottom: 1rem; }
-        .pass { color: var(--success); }
-        .fail { color: var(--danger); }
-
-        /* AI Chat UI */
-        .chat-box { height: 300px; background: #0f172a; border-radius: 6px; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; border: 1px solid #334155; margin-bottom: 1rem; }
-        .message { padding: 0.75rem 1rem; border-radius: 8px; max-width: 80%; }
-        .msg-user { background: var(--accent); align-self: flex-end; }
-        .msg-ai { background: #334155; align-self: flex-start; }
-        .input-group { display: flex; gap: 0.5rem; }
-        input[type="text"] { flex: 1; padding: 0.75rem; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; font-size: 1rem; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .telemetry-bar {
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 2rem;
+            font-size: 0.95rem;
+        }
+        .telemetry-item {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .telemetry-label {
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        .telemetry-value {
+            color: #38bdf8;
+            font-weight: 500;
+        }
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 2px solid #334155;
+            margin-bottom: 1.5rem;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        .tab-btn.active {
+            color: #38bdf8;
+            border-bottom: 2px solid #38bdf8;
+        }
+        .tab-content {
+            display: none;
+            background: #1e293b;
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        button {
+            background-color: #0284c7;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #0369a1;
+        }
+        .btn-danger {
+            background-color: #b91c1c;
+        }
+        .btn-danger:hover {
+            background-color: #991b1b;
+        }
+        .console {
+            background-color: #020617;
+            color: #4ade80;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            padding: 1.5rem;
+            border-radius: 6px;
+            margin-top: 1.5rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            border: 1px solid #1e293b;
+        }
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #cbd5e1;
+        }
+        input[type="text"], input[type="password"], select {
+            width: 100%;
+            padding: 0.75rem;
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: white;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        details {
+            margin-top: 1.5rem;
+            background: #111827;
+            padding: 1rem;
+            border-radius: 6px;
+            border: 1px solid #374151;
+        }
+        summary {
+            cursor: pointer;
+            font-weight: bold;
+            color: #9ca3af;
+        }
     </style>
 </head>
 <body>
-
-    <div class="header-panel">
-        <h1 style="margin-top:0;">Arcus Control Center</h1>
-        <p><strong>CPU:</strong> {{CPU}}</p>
-        <p><strong>Target Device:</strong> <span class="gpu-status">{{GPU_STATUS}}</span></p>
-    </div>
-
-    <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('deploy')">1. Deployment</button>
-        <button class="tab-btn" onclick="switchTab('workflows')">2. Workflows (CRUD)</button>
-        <button class="tab-btn" onclick="switchTab('diag')">3. System Diagnostics</button>
-        <button class="tab-btn" onclick="switchTab('chat')">4. AI Chat Showcase</button>
-        <button class="tab-btn" onclick="switchTab('image')">5. Image Gen</button>
-        <button class="tab-btn" onclick="switchTab('models')">6. Model Storage</button>
-    </div>
-
-    <div id="deploy" class="tab-content active">
-        <h2>OpenVINO Management</h2>
-        <p>Deploy native Ubuntu Intel Arc compute runtimes and the OpenVINO Python Environment.</p>
-        <div style="display:flex; gap:1rem; align-items:center;">
-            <button onclick="runInstall()">Launch Installation Pipeline</button>
-            <button class="btn-danger" onclick="runUninstall()">Completely Uninstall</button>
-            <label style="margin-left:auto;"><input type="checkbox" id="preserve" checked> Preserve Models</label>
-        </div>
-        <div id="deployLog" class="console" style="display:none;"></div>
-    </div>
-
-    <div id="workflows" class="tab-content">
-        <h2>Model Workflow Configurations</h2>
-        <p>Manage model execution pipelines for Text, Code, Image, and Video operations.</p>
+    <div class="container">
+        <h1>Arcus Control Center</h1>
         
-        <div style="background: #0f172a; padding: 1.5rem; border-radius: 6px; border: 1px solid #334155; margin-bottom: 1.5rem;">
-            <h3>Add / Edit Workflow</h3>
-            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; align-items: center;">
-                <input type="hidden" id="wfId">
-                <input type="text" id="wfName" placeholder="Name (e.g., Gemma 4 12B Code)" style="flex: 1; min-width: 200px;">
-                <input type="text" id="wfModel" placeholder="HF Model ID (e.g., google/gemma-4-12B-it)" style="flex: 1; min-width: 250px;">
-                <select id="wfTask" style="padding: 0.75rem; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 6px; min-width: 150px;">
-                    <option value="text-generation">Text & Code Generation</option>
-                    <option value="image-generation">Image Generation (Diffusion)</option>
-                    <option value="video-generation">Video Generation (Pipeline)</option>
+        <div class="telemetry-bar">
+            <div class="telemetry-item">
+                <span class="telemetry-label">CPU:</span>
+                <span class="telemetry-value">{{.CPU}}</span>
+            </div>
+            <div class="telemetry-item">
+                <span class="telemetry-label">Target Device:</span>
+                <span class="telemetry-value">{{.GPUStatus}}</span>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('deploy', event)">Deployment Center</button>
+            <button class="tab-btn" onclick="switchTab('runtime', event)">Engine Runtime</button>
+            <button class="tab-btn" onclick="switchTab('interact', event)">Inference Playground</button>
+        </div>
+
+        <!-- TAB 1: DEPLOYMENT CENTER -->
+        <div id="deploy" class="tab-content active">
+            <h2>OpenVINO Hardware Ecosystem</h2>
+            <p>Provision environment paths, base dependencies, and user-space hardware rendering configurations.</p>
+            
+            <div style="display:flex; gap:1rem; align-items:center;">
+                <button onclick="runInstall()">Launch Installation Pipeline</button>
+                <button class="btn-danger" onclick="runUninstall()">Completely Uninstall</button>
+                <label style="margin-left:auto; display:flex; align-items:center; gap:0.5rem;">
+                    <input type="checkbox" id="preserve" checked> Preserve Local Models
+                </label>
+            </div>
+
+            <details>
+                <summary>Advanced Deployment Options (Optional)</summary>
+                <div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                    <label style="font-size: 0.9rem; display:flex; align-items:center; gap:0.5rem;">
+                        <input type="checkbox" id="useNightly"> Pull Bleeding-Edge Repositories (Required for bleeding-edge architectures like Gemma 4)
+                    </label>
+                    <div class="form-group">
+                        <label for="hfToken">HuggingFace Hub Access Token</label>
+                        <input type="password" id="hfToken" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (Required for gated checkpoints)">
+                    </div>
+                </div>
+            </details>
+
+            <div id="deployLog" class="console" style="display:none;"></div>
+        </div>
+
+        <!-- TAB 2: RUNTIME ENGINE -->
+        <div id="runtime" class="tab-content">
+            <h2>Model Execution Mapping</h2>
+            <p>Export architecture layers and stage local execution memory graphs directly onto the Intel Arc A770 hardware pipeline.</p>
+            
+            <div class="form-group">
+                <label for="modelId">HuggingFace Model Reference Identifier</label>
+                <input type="text" id="modelId" value="google/gemma-4-E4B-it">
+            </div>
+
+            <div class="form-group">
+                <label for="taskType">Pipeline Inference Topology</label>
+                <select id="taskType">
+                    <option value="text-generation">Text Generation (Causal LM)</option>
+                    <option value="image-text-to-text">Multimodal (Image-Text-to-Text)</option>
+                    <option value="image-generation">Image Generation (Stable Diffusion)</option>
                 </select>
-                <button onclick="saveWorkflow()">Save Workflow</button>
+            </div>
+
+            <button onclick="launchEngine()">Initialize Engine Architecture</button>
+            <div id="runtimeLog" class="console" style="display:none;"></div>
+        </div>
+
+        <!-- TAB 3: INFERENCE PLAYGROUND -->
+        <div id="interact" class="tab-content">
+            <h2>Local Payload Dispatches</h2>
+            <p>Issue raw evaluation prompts to the running pipeline mapping loop over port 11434.</p>
+            
+            <div class="form-group">
+                <label for="promptInput">Payload Content / Prompt Context</label>
+                <input type="text" id="promptInput" value="Hello! What are you?">
+            </div>
+
+            <button onclick="sendInference()">Dispatch Inference Sequence</button>
+            
+            <div style="margin-top: 1.5rem;">
+                <h3>Execution Matrix Response</h3>
+                <div id="inferenceOutput" style="background:#020617; padding:1.5rem; border-radius:6px; min-height:60px; border:1px solid #1e293b;"></div>
+                <p id="metricsPanel" style="font-size:0.85rem; color:#64748b; margin-top:0.5rem;"></p>
             </div>
         </div>
-
-        <table style="width: 100%; border-collapse: collapse; text-align: left; background: #0f172a; border-radius: 6px; overflow: hidden; border: 1px solid #334155;">
-            <thead style="background: #334155;">
-                <tr>
-                    <th style="padding: 1rem;">Configuration Name</th>
-                    <th style="padding: 1rem;">Model Repository</th>
-                    <th style="padding: 1rem;">Task Designation</th>
-                    <th style="padding: 1rem;">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="workflowTableBody">
-                </tbody>
-        </table>
-    </div>
-
-    <div id="diag" class="tab-content">
-        <h2>Native Hardware Validation</h2>
-        <p>Run internal Go routines to verify system topology and active telemetry.</p>
-        <button onclick="runDiagnostics()">Execute Validation Scan</button>
-        
-        <div class="diag-grid" id="diagResults" style="display:none;">
-            <div class="diag-card">
-                <div id="diag-group-icon" class="status-icon">⏳</div>
-                <h3>System Groups</h3>
-                <p>Verifies your user account is in the 'render' and 'video' groups.</p>
-            </div>
-            <div class="diag-card">
-                <div id="diag-opencl-icon" class="status-icon">⏳</div>
-                <h3>OpenCL API</h3>
-                <p>Verifies runtime libraries successfully detect the Arc A770.</p>
-            </div>
-            <div class="diag-card">
-                <div id="diag-driver-icon" class="status-icon">⏳</div>
-                <h3>Kernel Driver</h3>
-                <p>Verifies low-level system driver (xe/i915) is actively engaged.</p>
-            </div>
-            <div class="diag-card" style="border: 2px solid var(--accent);">
-                <div id="diag-tkps-icon" class="status-icon">⚡</div>
-                <h3>Inference Performance</h3>
-                <p style="font-size: 1.2rem; font-weight: bold; margin-bottom: 0;">Latest: <span id="diag-tkps-val" style="color:var(--success);">N/A</span></p>
-                <p style="font-size:0.8rem; color:#94a3b8;">Updates automatically post-generation.</p>
-            </div>
-        </div>
-    </div>
-
-    <div id="chat" class="tab-content">
-        <h2>Local LLM Orchestration</h2>
-        <p>Proxy directly to your native OpenVINO engine using configured Workflows.</p>
-        
-        <div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem;">
-            <select id="chatWorkflowSelect" style="padding: 0.75rem; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 4px; min-width: 250px;"></select>
-            <button onclick="launchEngine()" style="background-color: #0ea5e9;">Launch Engine in Separate Window</button>
-            <span id="engineStatus" style="color: #94a3b8; font-size: 0.9rem;"></span>
-        </div>
-
-        <div class="chat-box" id="chatHistory">
-            <div class="message msg-ai">System ready. Select a Workflow, launch the engine above, wait for the model to load into the VRAM, then enter a prompt.</div>
-        </div>
-        <div class="input-group">
-            <input type="text" id="chatInput" placeholder="Type a message or coding task..." onkeypress="if(event.key === 'Enter') sendChat()">
-            <button onclick="sendChat()">Send</button>
-        </div>
-    </div>
-
-    <div id="image" class="tab-content">
-        <h2>Image Generation Interface</h2>
-        <p>UI framework ready. Ensure an Image Generation workflow is active.</p>
-        <div style="background: #0f172a; height: 300px; border: 2px dashed #334155; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
-            <span id="imageCanvas" style="color: #64748b;">Image Canvas Ready</span>
-        </div>
-        <div class="input-group">
-            <input type="text" id="imageInput" placeholder="A futuristic freight train racing through a cyberpunk city, highly detailed...">
-            <button onclick="generateImage()">Generate</button>
-        </div>
-    </div>
-
-    <div id="models" class="tab-content">
-        <h2>Managed Model Repository</h2>
-        <p>Location: <code style="color: #38bdf8;">~/arcus_models</code></p>
-        <p style="color:#94a3b8; font-size:0.9rem;">HuggingFace Optimum caches local weights and OpenVINO IR files natively in this directory.</p>
-        <button onclick="fetchModels()">Refresh Directory</button>
-        <ul id="modelList" style="background: #020617; color: #4ade80; padding: 1.5rem 2rem; border-radius: 6px; font-family: monospace; border: 1px solid #334155; margin-top: 1rem; list-style-type: square;">
-            </ul>
     </div>
 
     <script>
-        // --- Initialization ---
-        window.onload = function() {
-            fetchWorkflows();
-            fetchModels();
-        };
-
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            event.target.classList.add('active');
-        }
-
-        // --- Workflow CRUD Logic ---
-        async function fetchWorkflows() {
-            const res = await fetch('/api/workflows');
-            const data = await res.json();
+        function switchTab(tabId, evt) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             
-            let rows = '';
-            let options = '';
-            
-            for (const [id, wf] of Object.entries(data)) {
-                rows += '<tr style="border-bottom: 1px solid #1e293b;">' +
-                    '<td style="padding: 1rem;"><strong>' + wf.name + '</strong></td>' +
-                    '<td style="padding: 1rem; color: #94a3b8; font-family: monospace;">' + wf.modelId + '</td>' +
-                    '<td style="padding: 1rem;"><span style="background: #334155; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem;">' + wf.taskType + '</span></td>' +
-                    '<td style="padding: 1rem;">' +
-                        '<button onclick="editWorkflow(\''+wf.id+'\', \''+wf.name+'\', \''+wf.modelId+'\', \''+wf.taskType+'\')" style="background:#f59e0b; padding:0.4rem 0.8rem; font-size:0.8rem; margin-right:0.5rem;">Edit</button>' +
-                        '<button onclick="deleteWorkflow(\''+wf.id+'\')" class="btn-danger" style="padding:0.4rem 0.8rem; font-size:0.8rem;">Delete</button>' +
-                    '</td>' +
-                '</tr>';
-                options += '<option value="' + wf.id + '">' + wf.name + ' [' + wf.taskType + ']</option>';
+            const targetTab = document.getElementById(tabId);
+            if (targetTab) {
+                targetTab.classList.add('active');
             }
             
-            document.getElementById('workflowTableBody').innerHTML = rows;
-            document.getElementById('chatWorkflowSelect').innerHTML = options;
-        }
-
-        function editWorkflow(id, name, modelId, taskType) {
-            document.getElementById('wfId').value = id;
-            document.getElementById('wfName').value = name;
-            document.getElementById('wfModel').value = modelId;
-            document.getElementById('wfTask').value = taskType;
-        }
-
-        async function saveWorkflow() {
-            const wf = {
-                id: document.getElementById('wfId').value,
-                name: document.getElementById('wfName').value,
-                modelId: document.getElementById('wfModel').value,
-                taskType: document.getElementById('wfTask').value
-            };
-            if(!wf.name || !wf.modelId) return alert("Name and Model ID required.");
-            
-            await fetch('/api/workflows', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(wf)
-            });
-            
-            document.getElementById('wfId').value = '';
-            document.getElementById('wfName').value = '';
-            document.getElementById('wfModel').value = '';
-            fetchWorkflows();
-        }
-
-        async function deleteWorkflow(id) {
-            if(confirm("Delete this workflow configuration?")) {
-                await fetch('/api/workflows?id=' + id, {method: 'DELETE'});
-                fetchWorkflows();
+            if (evt && evt.currentTarget) {
+                evt.currentTarget.classList.add('active');
             }
-        }
-
-        // --- Model Storage Logic ---
-        async function fetchModels() {
-            const res = await fetch('/api/models');
-            const data = await res.json();
-            const list = document.getElementById('modelList');
-            list.innerHTML = '';
-            if (!data || data.length === 0) {
-                list.innerHTML = '<li style="color: #64748b;">Directory is currently empty.</li>';
-                return;
-            }
-            data.forEach(m => {
-                list.innerHTML += '<li>' + m + '</li>';
-            });
-        }
-
-        // --- Deployment Logic ---
-        function showLog(msg) {
-            const el = document.getElementById('deployLog');
-            el.style.display = 'block';
-            el.innerText += msg + '\n';
-            el.scrollTop = el.scrollHeight;
         }
 
         async function runInstall() {
-            document.getElementById('deployLog').innerText = "";
-            showLog("🚂 Awaiting authorization for core drivers...");
-            const res = await fetch('/api/install');
-            showLog(await res.text());
+            const nightly = document.getElementById('useNightly').checked;
+            const token = document.getElementById('hfToken').value.trim();
+            const logBox = document.getElementById('deployLog');
+            
+            logBox.style.display = "block";
+            logBox.innerText = "🚂 Prompting system authorization loop for core infrastructure dependencies...\n";
+            
+            try {
+                const res = await fetch('/api/install', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ useNightly: nightly, hfToken: token })
+                });
+                const txt = await res.text();
+                logBox.innerText += txt;
+            } catch(e) {
+                logBox.innerText += "\n❌ Connection error encountered: " + e.message;
+            }
         }
 
         async function runUninstall() {
-            document.getElementById('deployLog').innerText = "";
-            const p = document.getElementById('preserve').checked;
-            showLog("🚂 Awaiting authorization to rollback...");
-            const res = await fetch('/api/uninstall?preserve=' + p);
-            showLog(await res.text());
-        }
-
-        // --- Diagnostics Logic ---
-        async function runDiagnostics() {
-            document.getElementById('diagResults').style.display = 'grid';
+            const preserve = document.getElementById('preserve').checked;
+            const logBox = document.getElementById('deployLog');
+            logBox.style.display = "block";
+            logBox.innerText = "🧹 Erasing compute runtimes and environment blocks...\n";
             
-            const ids = ['group', 'opencl', 'driver'];
-            ids.forEach(id => {
-                const el = document.getElementById('diag-' + id + '-icon');
-                el.innerText = '⏳';
-                el.className = 'status-icon';
-            });
-
-            const res = await fetch('/api/diagnostics');
-            const data = await res.json();
-
-            function setStatus(id, passed) {
-                const el = document.getElementById('diag-' + id + '-icon');
-                el.innerText = passed ? '✅' : '❌';
-                el.className = 'status-icon ' + (passed ? 'pass' : 'fail');
+            try {
+                const res = await fetch('/api/uninstall?preserve=' + preserve, { method: 'POST' });
+                logBox.innerText += await res.text();
+            } catch(e) {
+                logBox.innerText += "\n❌ Process termination failure: " + e.message;
             }
-
-            setStatus('group', data.groups);
-            setStatus('opencl', data.opencl);
-            setStatus('driver', data.driver);
         }
 
-        // --- Chat Logic ---
         async function launchEngine() {
-            const statusEl = document.getElementById('engineStatus');
-            const wfId = document.getElementById('chatWorkflowSelect').value;
-            statusEl.innerText = "Spawning external terminal window...";
+            const model = document.getElementById('modelId').value.trim();
+            const task = document.getElementById('taskType').value;
+            const logBox = document.getElementById('runtimeLog');
             
-            const res = await fetch('/api/launch-engine', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({id: wfId})
-            });
-            const data = await res.json();
-            statusEl.innerText = data.status;
-        }
-
-        async function sendChat() {
-            const input = document.getElementById('chatInput');
-            const msg = input.value.trim();
-            if(!msg) return;
-
-            const box = document.getElementById('chatHistory');
-            box.innerHTML += '<div class="message msg-user">' + msg + '</div>';
-            input.value = '';
-            box.scrollTop = box.scrollHeight;
-
-            const loadingId = 'load-' + Date.now();
-            box.innerHTML += '<div id="'+loadingId+'" class="message msg-ai">...</div>';
-            box.scrollTop = box.scrollHeight;
-
-            const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({message: msg})
-            });
-            const data = await res.json();
-
-            // Handle Response
-            document.getElementById(loadingId).innerText = data.response;
-            box.scrollTop = box.scrollHeight;
+            logBox.style.display = "block";
+            logBox.innerText = "🚀 Initializing OpenVINO Engine on Intel Arc A770...\n";
             
-            // Handle Telemetry Update
-            if(data.tkps !== undefined && data.tkps > 0) {
-                document.getElementById('diag-tkps-val').innerText = data.tkps + " tokens/sec";
+            try {
+                const res = await fetch('/api/launch', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ modelId: model, taskType: task })
+                });
+                logBox.innerText += await res.text();
+            } catch(e) {
+                logBox.innerText += "\n❌ Verification hook aborted: " + e.message;
             }
         }
 
-        // --- Image Gen Logic ---
-        async function generateImage() {
-            const input = document.getElementById('imageInput').value;
-            if(!input) return;
-            const canvas = document.getElementById('imageCanvas');
-            canvas.innerText = "Processing via backend...";
+        async function sendInference() {
+            const pmt = document.getElementById('promptInput').value;
+            const outBox = document.getElementById('inferenceOutput');
+            const metrics = document.getElementById('metricsPanel');
+            const task = document.getElementById('taskType').value;
             
-            const res = await fetch('/api/generate-image');
-            const data = await res.json();
-            
-            canvas.innerText = data.status;
-            canvas.style.color = "#3b82f6";
+            outBox.innerText = "Evaluating multi-token sequence graphs across execution units...";
+            metrics.innerText = "";
+
+            try {
+                const res = await fetch('http://127.0.0.1:11434/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ prompt: pmt, task_type: task })
+                });
+                const data = await res.json();
+                if (data.response) {
+                    outBox.innerText = data.response;
+                    metrics.innerText = "Performance metrics: " + data.tkps + " tokens per second.";
+                } else {
+                    outBox.innerText = "Error tracking response matrix from internal server payload.";
+                }
+            } catch(e) {
+                outBox.innerText = "Failed connection matching over port 11434. Confirm engine instantiation status.";
+            }
         }
     </script>
 </body>
