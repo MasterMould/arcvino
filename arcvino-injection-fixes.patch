@@ -1,0 +1,112 @@
+diff --git a/handlers_deploy.go b/handlers_deploy.go
+index 49d2dfc..cf892a5 100644
+--- a/handlers_deploy.go
++++ b/handlers_deploy.go
+@@ -6,6 +6,7 @@ import (
+ 	"net/http"
+ 	"os"
+ 	"os/exec"
++	"path/filepath"
+ )
+ 
+ func handleInstall(w http.ResponseWriter, r *http.Request) {
+@@ -46,19 +47,24 @@ pip install git+https://github.com/huggingface/optimum-intel.git
+ `
+ 	}
+ 
+-	if opts.HFToken != "" {
+-		userScript += fmt.Sprintf(`
+-echo "🔑 Logging engine runtime token profile directly into HuggingFace environment hub..."
+-huggingface-cli login --token %s --add-to-git-credential
+-`, opts.HFToken)
+-	}
+-
+ 	userScript += "\necho \"✅ Environment execution architecture setup successfully verified.\""
+ 
+ 	cmdUser := exec.Command("bash", "-c", userScript)
+ 	outUser, _ := cmdUser.CombinedOutput()
+ 
+-	fmt.Fprintf(w, "%s\n%s", string(outSys), string(outUser))
++	var outToken []byte
++	if opts.HFToken != "" {
++		// Run the venv's huggingface-cli directly with the token as a discrete
++		// argument instead of interpolating it into a shell string. exec.Command
++		// never invokes a shell for its argument list, so there is no way for
++		// the token's contents to be interpreted as shell syntax.
++		hfCLI := filepath.Join(home, "openvino_env", "bin", "huggingface-cli")
++		fmt.Println("🔑 Logging engine runtime token profile directly into HuggingFace environment hub...")
++		cmdToken := exec.Command(hfCLI, "login", "--token", opts.HFToken, "--add-to-git-credential")
++		outToken, _ = cmdToken.CombinedOutput()
++	}
++
++	fmt.Fprintf(w, "%s\n%s\n%s", string(outSys), string(outUser), string(outToken))
+ }
+ 
+ func handleUninstall(w http.ResponseWriter, r *http.Request) {
+diff --git a/handlers_runtime.go b/handlers_runtime.go
+index e8038ba..6421511 100644
+--- a/handlers_runtime.go
++++ b/handlers_runtime.go
+@@ -10,6 +10,13 @@ import (
+ 	"strings"
+ )
+ 
++// shQuote wraps s in single quotes, escaping any single quotes it contains,
++// so it can be safely embedded as one literal shell word regardless of its
++// contents (spaces, quotes, $, backticks, ;, &&, etc. all become inert).
++func shQuote(s string) string {
++	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
++}
++
+ // handleListModels scans ~/arcus_models and HuggingFace cache for existing local models
+ func handleListModels(w http.ResponseWriter, r *http.Request) {
+ 	home, _ := os.UserHomeDir()
+@@ -70,13 +77,20 @@ func handleLaunchEngine(w http.ResponseWriter, r *http.Request) {
+ 	shScriptPath := filepath.Join(home, "start_engine.sh")
+ 
+ 	// The Python script is generated here. We've added subprocess and a try/except for OSError 98.
++	// model_id and task_type are attacker-influenced (they come straight off the
++	// HTTP request body), so they are never interpolated into the Python source
++	// itself -- that would let a value containing a quote character break out of
++	// the string literal and inject arbitrary Python. Instead they're passed in
++	// as environment variables by the wrapper shell script below and read back
++	// out with os.environ, which treats them as opaque data no matter what
++	// characters they contain.
+ 	pyCode := fmt.Sprintf(`import sys, json, time, os, subprocess
+ from http.server import HTTPServer, BaseHTTPRequestHandler
+ from transformers import AutoTokenizer, AutoProcessor
+ from optimum.intel.openvino import OVModelForCausalLM, OVModelForVisualCausalLM
+ 
+-model_id = "%s"
+-task_type = "%s"
++model_id = os.environ["ARC_MODEL_ID"]
++task_type = os.environ.get("ARC_TASK_TYPE", "text-generation")
+ storage_path = "%s"
+ 
+ print(f"📁 Managing model assets in: {storage_path}")
+@@ -174,18 +188,22 @@ except OSError as e:
+         sys.exit(1)
+     else:
+         raise
+-`, wf.ModelID, wf.TaskType, modelsDir)
++`, modelsDir)
+ 
+ 	os.WriteFile(pyScriptPath, []byte(pyCode), 0644)
+ 
++	// wf.ModelID / wf.TaskType are exported as shell variables here, safely
++	// single-quoted, rather than interpolated into the Python source above.
+ 	shCode := fmt.Sprintf(`#!/bin/bash
+ echo "🧹 Cleaning overlapping process maps..."
+-pkill -f "%s" || true
++pkill -f %s || true
+ sleep 1
+ source %s/openvino_env/bin/activate
++export ARC_MODEL_ID=%s
++export ARC_TASK_TYPE=%s
+ python3 %s
+ exec bash
+-`, pyScriptPath, home, pyScriptPath)
++`, shQuote(pyScriptPath), shQuote(home), shQuote(wf.ModelID), shQuote(wf.TaskType), shQuote(pyScriptPath))
+ 
+ 	os.WriteFile(shScriptPath, []byte(shCode), 0755)
+ 
