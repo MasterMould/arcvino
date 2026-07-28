@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -20,8 +21,14 @@ func main() {
 	http.HandleFunc("/api/models", handleListModels)
 	http.HandleFunc("/api/terminal", handleTerminalExec)
 
-	fmt.Println("🌍 Core Orchestrator Online. Route listening map established over http://127.0.0.1:8080")
-	if err := http.ListenAndServe("127.0.0.1:8080", nil); err != nil {
+	port := "8080"
+	if p := os.Getenv("ARCVINO_PORT"); p != "" {
+		port = p
+	}
+	addr := "127.0.0.1:" + port
+
+	fmt.Printf("🌍 Core Orchestrator Online. Route listening map established over http://%s\n", addr)
+	if err := http.ListenAndServe(addr, nil); err != nil {
 		fmt.Printf("Fatal interface panic scenario: %v\n", err)
 	}
 }

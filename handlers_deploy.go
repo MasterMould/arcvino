@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 func handleInstall(w http.ResponseWriter, r *http.Request) {
@@ -46,19 +47,24 @@ pip install git+https://github.com/huggingface/optimum-intel.git
 `
 	}
 
-	if opts.HFToken != "" {
-		userScript += fmt.Sprintf(`
-echo "🔑 Logging engine runtime token profile directly into HuggingFace environment hub..."
-huggingface-cli login --token %s --add-to-git-credential
-`, opts.HFToken)
-	}
-
 	userScript += "\necho \"✅ Environment execution architecture setup successfully verified.\""
 
 	cmdUser := exec.Command("bash", "-c", userScript)
 	outUser, _ := cmdUser.CombinedOutput()
 
-	fmt.Fprintf(w, "%s\n%s", string(outSys), string(outUser))
+	var outToken []byte
+	if opts.HFToken != "" {
+		// Run the venv's huggingface-cli directly with the token as a discrete
+		// argument instead of interpolating it into a shell string. exec.Command
+		// never invokes a shell for its argument list, so there is no way for
+		// the token's contents to be interpreted as shell syntax.
+		hfCLI := filepath.Join(home, "openvino_env", "bin", "huggingface-cli")
+		fmt.Println("🔑 Logging engine runtime token profile directly into HuggingFace environment hub...")
+		cmdToken := exec.Command(hfCLI, "login", "--token", opts.HFToken, "--add-to-git-credential")
+		outToken, _ = cmdToken.CombinedOutput()
+	}
+
+	fmt.Fprintf(w, "%s\n%s\n%s", string(outSys), string(outUser), string(outToken))
 }
 
 func handleUninstall(w http.ResponseWriter, r *http.Request) {

@@ -10,6 +10,13 @@ import (
 	"strings"
 )
 
+// shQuote wraps s in single quotes, escaping any single quotes it contains,
+// so it can be safely embedded as one literal shell word regardless of its
+// contents (spaces, quotes, $, backticks, ;, &&, etc. all become inert).
+func shQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // handleListModels scans ~/arcus_models and HuggingFace cache for existing local models
 func handleListModels(w http.ResponseWriter, r *http.Request) {
 	home, _ := os.UserHomeDir()
@@ -70,13 +77,20 @@ func handleLaunchEngine(w http.ResponseWriter, r *http.Request) {
 	shScriptPath := filepath.Join(home, "start_engine.sh")
 
 	// The Python script is generated here. We've added subprocess and a try/except for OSError 98.
+	// model_id and task_type are attacker-influenced (they come straight off the
+	// HTTP request body), so they are never interpolated into the Python source
+	// itself -- that would let a value containing a quote character break out of
+	// the string literal and inject arbitrary Python. Instead they're passed in
+	// as environment variables by the wrapper shell script below and read back
+	// out with os.environ, which treats them as opaque data no matter what
+	// characters they contain.
 	pyCode := fmt.Sprintf(`import sys, json, time, os, subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from transformers import AutoTokenizer, AutoProcessor
 from optimum.intel.openvino import OVModelForCausalLM, OVModelForVisualCausalLM
 
-model_id = "%s"
-task_type = "%s"
+model_id = os.environ["ARC_MODEL_ID"]
+task_type = os.environ.get("ARC_TASK_TYPE", "text-generation")
 storage_path = "%s"
 
 print(f"📁 Managing model assets in: {storage_path}")
@@ -174,18 +188,22 @@ except OSError as e:
         sys.exit(1)
     else:
         raise
-`, wf.ModelID, wf.TaskType, modelsDir)
+`, modelsDir)
 
 	os.WriteFile(pyScriptPath, []byte(pyCode), 0644)
 
+	// wf.ModelID / wf.TaskType are exported as shell variables here, safely
+	// single-quoted, rather than interpolated into the Python source above.
 	shCode := fmt.Sprintf(`#!/bin/bash
 echo "🧹 Cleaning overlapping process maps..."
-pkill -f "%s" || true
+pkill -f %s || true
 sleep 1
 source %s/openvino_env/bin/activate
+export ARC_MODEL_ID=%s
+export ARC_TASK_TYPE=%s
 python3 %s
 exec bash
-`, pyScriptPath, home, pyScriptPath)
+`, shQuote(pyScriptPath), shQuote(home), shQuote(wf.ModelID), shQuote(wf.TaskType), shQuote(pyScriptPath))
 
 	os.WriteFile(shScriptPath, []byte(shCode), 0755)
 

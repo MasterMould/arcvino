@@ -14,7 +14,7 @@ if ! command -v go &> /dev/null; then
     
     if [ ! -x "/usr/local/go/bin/go" ]; then
         echo "📥 Fetching the latest stable compiler..."
-        GO_VERSION="1.22.4" 
+        GO_VERSION="1.22" 
         wget -q --show-progress "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -O /tmp/go.tar.gz
         
         echo "🔧 Extracting Go to /usr/local (requires sudo)..."
@@ -39,7 +39,7 @@ if [ ! -f "go.mod" ]; then
 fi
 
 echo "🏗️ Compiling the OpenVINO hardware discovery engine..."
-go build -o openvino-wizard main.go
+go build -o openvino-wizard .
 
 echo "🚀 Launching the local web interface..."
 ./openvino-wizard
