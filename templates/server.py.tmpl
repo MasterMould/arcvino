@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+import json
+import time
+import asyncio
+from typing import List, Optional, Union, Dict, Any
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+import openvino_genai as ov_genai
+
+app = FastAPI(title="ArcVINO OpenAI-Compatible Server", version="1.0.0")
+
+# Enable CORS for standard multi-UI dashboard connections (Open WebUI, LibreChat, etc.)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Shared global pipeline reference
+pipe = None
+MODEL_NAME = "local-intel-arc-model"
+
+# --- OpenAI API Schema Definitions ---
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatCompletionRequest(BaseModel):
+    model: str
+    messages: List[ChatMessage]
+    temperature: Optional[float] = 0.7
+    max_tokens: Optional[int] = 512
+    stream: Optional[bool] = False
+
+# --- Core Inference Handlers ---
+def init_pipeline():
+    """Initializes the OpenVINO GenAI pipeline targeting Intel Graphics hardware."""
+    global pipe
+    try:
+        # Template interpolation targets set dynamically by the Go launcher config
+        model_path = "{{ .ModelPath }}" 
+        device_target = "{{ .Device }}"  # Default: "GPU" or "GPU.0" for Intel Arc
+        
+        print(f"[ArcVINO] Loading weights from {model_path} onto device {device_target}...")
+        pipe = ov_genai.LLMPipeline(model_path, device_target)
+        print("[ArcVINO] OpenVINO GenAI Backend loaded successfully!")
+    except Exception as e:
+        print(f"[ArcVINO Critical] Failed to initialize hardware pipeline: {e}")
+        raise e
+
+def format_messages_for_ov(messages: List[ChatMessage]) -> List[Dict[str, str]]:
+    """Converts standard incoming OpenAI message shapes into structured OpenVINO chat dictionaries."""
+    return [{"role": m.role, "content": m.content} for m in messages]
+
+async def stream_generation(ov_messages: List[Dict[str, str]], config: ov_genai.GenerationConfig):
+    """Asynchronously loops and yields tokens mimicking OpenAI SSE chunk mechanics."""
+    created_time = int(time.time())
+    chunk_id = f"chatcmpl-{int(time.time() * 1000)}"
+    
+    # Custom OpenVINO streamer hook to capture discrete token events
+    def token_callback(sub_token: str) -> bool:
+        token_queue.put_nowait(sub_token)
+        return False # False tells OpenVINO to continue generation loops
+
+    token_queue = asyncio.Queue()
+    config.set_eos_token_id(pipe.get_tokenizer().get_eos_token_id())
+
+    # Offload the blocking sync C++ execution thread safely to background workers
+    async def run_inference():
+        try:
+            pipe.generate(ov_messages, config, token_callback)
+        except Exception as e:
+            print(f"Error during runtime generation stream: {e}")
+        finally:
+            await token_queue.put(None) # Signal termination sentinel
+
+    asyncio.create_task(run_inference())
+
+    # Send the mandatory structural initial role delta
+    initial_delta = {
+        "id": chunk_id, "object": "chat.completion.chunk", "created": created_time,
+        "model": MODEL_NAME, "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]
+    }
+    yield f"data: {json.dumps(initial_delta)}\n\n"
+
+    while True:
+        token = await token_queue.get()
+        if token is None:
+            break
+        
+        chunk = {
+            "id": chunk_id, "object": "chat.completion.chunk", "created": created_time,
+            "model": MODEL_NAME, "choices": [{"index": 0, "delta": {"content": token}, "finish_reason": None}]
+        }
+        yield f"data: {json.dumps(chunk)}\n\n"
+
+    # Send final boundary terminal sequence package
+    final_chunk = {
+        "id": chunk_id, "object": "chat.completion.chunk", "created": created_time,
+        "model": MODEL_NAME, "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]
+    }
+    yield f"data: {json.dumps(final_chunk)}\n\n"
+    yield "data: [DONE]\n\n"
+
+# --- API Route Target Endpoints ---
+@app.on_event("startup")
+async def startup_event():
+    init_pipeline()
+
+@app.get("/v1/models")
+async def list_models():
+    """Tells querying apps what base model engine is running on the card."""
+    return {
+        "object": "list",
+        "data": [{
+            "id": MODEL_NAME,
+            "object": "model",
+            "created": int(time.time()),
+            "owned_by": "arcvino"
+        }]
+    }
+
+@app.post("/v1/chat/completions")
+async def create_chat_completion(body: ChatCompletionRequest):
+    """Main execution block processing structural model completions."""
+    if not pipe:
+        raise HTTPException(status_code=503, detail="OpenVINO pipeline context is currently uninitialized.")
+    
+    # Parse parameter updates into native OpenVINO engine configurations
+    ov_messages = format_messages_for_ov(body.messages)
+    config = ov_genai.GenerationConfig()
+    config.max_new_tokens = body.max_tokens
+    config.temperature = body.temperature
+    
+    if body.stream:
+        return StreamingResponse(
+            stream_generation(ov_messages, config), 
+            media_type="text/event-stream"
+        )
+    
+    # Executing Standard Synchronous (Blocking) fallback request block
+    try:
+        start_time = time.time()
+        # Offload sync block execution to avoid locking main async framework loop
+        response_text = await asyncio.to_thread(pipe.generate, ov_messages, config)
+        duration = time.time() - start_time
+        
+        return {
+            "id": f"chatcmpl-{int(time.time() * 1000)}",
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": MODEL_NAME,
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": response_text},
+                "finish_reason": "stop"
+            }],
+            "usage": {
+                "prompt_tokens": -1,       # Native accurate token tracking requires tokenizer payload evaluations
+                "completion_tokens": -1,   
+                "total_tokens": -1
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Inference Engine failed execution: {str(e)}")
+
+if __name__ == "__main__":
+    import uvicorn
+    # Executed on host local binding configurations
+    uvicorn.run(app, host="{{ .Host }}", port=int("{{ .Port }}"))
