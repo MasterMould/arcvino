@@ -36,7 +36,7 @@ echo "🐍 Fabricating secure local OpenVINO Python Environment space..."
 python3 -m venv %s/openvino_env
 source %s/openvino_env/bin/activate
 pip install --upgrade pip
-pip install openvino openvino-genai optimum-intel[openvino] diffusers accelerate huggingface_hub torchvision
+pip install fastapi uvicorn pydantic openvino openvino-genai optimum-intel[openvino] diffusers accelerate huggingface_hub torchvision
 `, home, home)
 
 	if opts.UseNightly {
